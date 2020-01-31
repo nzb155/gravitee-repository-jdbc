@@ -68,6 +68,8 @@ public class JdbcIdentityProviderRepository implements IdentityProviderRepositor
     
     private final static ObjectMapper JSON_MAPPER = new ObjectMapper();
 
+    private static final String ESCAPED_ORDER_COLUMN_NAME = escapeReservedWord("order");
+
     private final Rm mapper = new Rm();
 
     private static final JdbcObjectMapper ORM = JdbcObjectMapper.builder(IdentityProvider.class, "identity_providers", "id")
@@ -82,6 +84,7 @@ public class JdbcIdentityProviderRepository implements IdentityProviderRepositor
             .addColumn("sync_mappings", Types.BOOLEAN, Boolean.class)
             .addColumn("created_at", Types.TIMESTAMP, Date.class)
             .addColumn("updated_at", Types.TIMESTAMP, Date.class)
+            .addColumn("order", Types.INTEGER, int.class)
             .build();
 
     private class Rm implements RowMapper<IdentityProvider> {
@@ -330,6 +333,23 @@ public class JdbcIdentityProviderRepository implements IdentityProviderRepositor
         } catch (final Exception ex) {
             LOGGER.error("Failed to find {} identityProviders by refs:", getOrm().getTableName(), ex);
             throw new TechnicalException("Failed to find " + getOrm().getTableName() + " identityProviders by refs", ex);
+        }
+    }
+
+    @Override
+    public Integer findMaxIdentityProviderReferenceIdAndReferenceTypeOrder(String referenceId,
+            IdentityProviderReferenceType referenceType) throws TechnicalException {
+        LOGGER.debug("JdbcIdentityProviderRepository<{}>.findMaxIdentityProviderReferenceIdAndReferenceTypeOrder({}, {})", referenceId, referenceType);
+        try {
+            Integer result = jdbcTemplate.queryForObject("select max(" + ESCAPED_ORDER_COLUMN_NAME + ") from identity_providers where reference_type = ? and reference_id = ? "
+                    , Integer.class
+                    , referenceType.name()
+                    , referenceId
+            );
+            return result == null ? 0 : result;
+        } catch (final Exception ex) {
+            LOGGER.error("Failed to find max identity provider order by reference id:", ex);
+            throw new TechnicalException("Failed to find max identity provider order by reference id", ex);
         }
     }
 }
